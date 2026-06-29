@@ -1,25 +1,21 @@
 local M = {}
 
 local defaults = {
-  -- Highlight for inline ghost text
   suggestion_hl = { fg = "#808080", italic = true },
-  -- Highlight for next-cursor « hint
-  next_hint_hl = { fg = "#d0a060" },
-  -- Key to accept suggestion
-  accept_key = "<Tab>",
+  next_hint_hl  = { fg = "#d0a060" },
+  accept_key    = "<Tab>",
 }
 
 local chan
 local ns_id
+local has_suggestion = false  -- true while ghost text is visible
 
 local function bin_path()
-  -- Prefer binary shipped next to the plugin (built via `build.sh` or lazy `build`)
   local plugin_dir = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h:h:h")
   local bundled = plugin_dir .. "/bin/cursortab"
   if vim.fn.executable(bundled) == 1 then
     return bundled
   end
-  -- Fall back to system PATH (e.g. installed via Nix)
   if vim.fn.executable("cursortab") == 1 then
     return "cursortab"
   end
@@ -53,27 +49,45 @@ function M.setup(opts)
   ns_id = vim.api.nvim_create_namespace("cursortab")
 
   vim.api.nvim_set_hl(0, "CursorTabSuggestion", opts.suggestion_hl)
-  vim.api.nvim_set_hl(0, "CursorTabNextHint", opts.next_hint_hl)
+  vim.api.nvim_set_hl(0, "CursorTabNextHint",   opts.next_hint_hl)
 
   vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
     callback = function()
       local c = ensure_job(bin)
       if not c then return end
-      local ok, err = pcall(vim.fn.rpcrequest, c, "cursortab_sync", ns_id)
+      -- Clear suggestion flag on every keystroke; binary will set a new one
+      has_suggestion = false
+      local ok = pcall(vim.fn.rpcrequest, c, "cursortab_sync", ns_id)
       if not ok then
         chan = nil
+        has_suggestion = false
       end
     end,
   })
 
+  -- After each sync the binary places extmarks; detect them to set has_suggestion
+  vim.api.nvim_create_autocmd("CursorMovedI", {
+    callback = function()
+      if not ns_id then return end
+      local buf = vim.api.nvim_get_current_buf()
+      local marks = vim.api.nvim_buf_get_extmarks(buf, ns_id, 0, -1, {})
+      has_suggestion = #marks > 0
+    end,
+  })
+
   vim.keymap.set("i", opts.accept_key, function()
+    if not has_suggestion then
+      -- No suggestion visible: insert a literal tab
+      return "\t"
+    end
+    has_suggestion = false
     local c = ensure_job(bin)
     if not c then return end
-    local ok, err = pcall(vim.fn.rpcrequest, c, "cursortab_tab_key", ns_id)
+    local ok = pcall(vim.fn.rpcrequest, c, "cursortab_tab_key", ns_id)
     if not ok then
       chan = nil
     end
-  end, { noremap = true, silent = true })
+  end, { noremap = true, silent = true, expr = true })
 end
 
 return M
