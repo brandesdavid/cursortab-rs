@@ -51,7 +51,7 @@ impl CursorApi {
         let framed = frame_message(&body);
         self.client
             .post(format!("{}{}", BASE_URL, path))
-            .header("content-type", "application/proto")
+            .header("content-type", "application/connect+proto")
             .header("authorization", format!("bearer {}", self.access_token))
             .header("x-cursor-client-version", "0.45.0")
             .header("x-cursor-checksum", &self.checksum)
