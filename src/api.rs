@@ -14,10 +14,34 @@ pub struct CursorApi {
     checksum: String,
 }
 
+fn build_client() -> Client {
+    let mut builder = Client::builder();
+
+    // On NixOS, SSL_CERT_FILE is not set by default; load the system bundle explicitly
+    let cert_paths = [
+        std::env::var("SSL_CERT_FILE").ok(),
+        Some("/etc/ssl/certs/ca-bundle.crt".to_string()),
+        Some("/etc/ssl/certs/ca-certificates.crt".to_string()),
+    ];
+    for path_opt in &cert_paths {
+        if let Some(path) = path_opt {
+            if let Ok(pem) = std::fs::read(path) {
+                if let Ok(cert) = reqwest::Certificate::from_pem(&pem) {
+                    builder = builder.add_root_certificate(cert);
+                    log::debug!("loaded CA bundle from {}", path);
+                    break;
+                }
+            }
+        }
+    }
+
+    builder.build().unwrap_or_else(|_| Client::new())
+}
+
 impl CursorApi {
     pub fn new(access_token: String, checksum: String) -> Self {
         Self {
-            client: Client::new(),
+            client: build_client(),
             access_token,
             checksum,
         }
