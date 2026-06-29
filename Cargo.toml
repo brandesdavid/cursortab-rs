@@ -1,0 +1,22 @@
+[package]
+name = "cursortab"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "cursortab"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+nvim-rs = { version = "0.6", features = ["use_tokio"] }
+prost = "0.13"
+reqwest = { version = "0.12", features = ["stream", "rustls-tls"], default-features = false }
+base64 = "0.22"
+rusqlite = { version = "0.32", features = ["bundled"] }
+bytes = "1"
+futures = "0.3"
+log = "0.4"
+simplelog = "0.12"
+async-trait = "0.1"
+tokio-util = { version = "0.7", features = ["io"] }
