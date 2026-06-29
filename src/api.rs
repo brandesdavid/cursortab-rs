@@ -73,6 +73,7 @@ impl CursorApi {
             }
         };
 
+        log::info!("stream_cpp HTTP {}", resp.status());
         let mut stream = resp.bytes_stream();
         let mut results = Vec::new();
         let mut leftover = Vec::new();
@@ -85,9 +86,14 @@ impl CursorApi {
                         None => break,
                         Some(Err(e)) => { log::error!("stream_cpp chunk: {}", e); break; }
                         Some(Ok(bytes)) => {
+                            log::debug!("stream_cpp chunk {} bytes", bytes.len());
                             leftover.extend_from_slice(&bytes);
-                            for msg_bytes in parse_frames(&leftover) {
+                            let frames = parse_frames(&leftover);
+                            log::debug!("stream_cpp parsed {} frames", frames.len());
+                            for msg_bytes in frames {
                                 let msg = decode_stream_cpp_response(&msg_bytes);
+                                log::debug!("stream_cpp msg: text={:?} start={:?} end={:?} done={:?}",
+                                    &msg.text[..msg.text.len().min(40)], msg.start_line, msg.end_line_inclusive, msg.done_stream);
                                 let done = msg.done_stream.unwrap_or(false);
                                 results.push(msg);
                                 if done { return results; }
@@ -98,6 +104,7 @@ impl CursorApi {
                 }
             }
         }
+        log::debug!("stream_cpp done, {} msgs total", results.len());
         results
     }
 
