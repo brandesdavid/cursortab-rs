@@ -78,14 +78,28 @@ impl PluginHandler {
                 st.api.stream_cpp(body, cancel).await
             };
 
-            if msgs.is_empty() { return; }
+            if msgs.is_empty() {
+                // Clear any stale ghost text from a previous suggestion
+                if let Ok(buf) = nvim.get_current_buf().await {
+                    let ns = state_arc.lock().await.ns_id;
+                    let _ = buf.clear_namespace(ns, 0, -1).await;
+                }
+                let mut st = state_arc.lock().await;
+                st.pending = None;
+                return;
+            }
 
             // Accumulate full suggestion
             let mut start_line: Option<i64> = None;
             let mut end_line: Option<i64> = None;
             let mut text = String::new();
             for msg in &msgs {
-                if let Some(s) = msg.start_line { start_line = Some(s as i64 - 1); }
+                // range_to_replace (field 11) takes priority; fall back to suggestion_start_line (field 2)
+                if let Some(s) = msg.start_line {
+                    start_line = Some(s as i64 - 1);
+                } else if start_line.is_none() {
+                    if let Some(s) = msg.suggestion_start_line { start_line = Some(s as i64 - 1); }
+                }
                 if let Some(e) = msg.end_line_inclusive { end_line = Some(e as i64 - 1); }
                 text.push_str(&msg.text);
             }
