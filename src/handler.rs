@@ -231,15 +231,11 @@ impl PluginHandler {
                 let _ = buf.clear_namespace(ns_id, 0, -1).await;
                 let _ = buf.set_extmark(ns_id, hint_line, 0, vec![
                     (Value::from("virt_text"), Value::from(vec![
-                        Value::from(vec![Value::from("«"), Value::from("CursorTabNextHint")])
+                        Value::from(vec![Value::from(" «"), Value::from("CursorTabNextHint")])
                     ])),
-                    (Value::from("virt_text_pos"), Value::from("overlay")),
+                    (Value::from("virt_text_pos"), Value::from("eol")),
                     (Value::from("hl_mode"), Value::from("combine")),
                 ]).await;
-
-                if let Ok(win) = nvim.get_current_win().await {
-                    let _ = win.set_cursor((hint_line + 1, 0)).await;
-                }
                 log::debug!("next cursor hint at line {}", hint_line);
             }
         });
